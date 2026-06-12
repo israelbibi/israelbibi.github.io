@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Hub</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #111;
+            color: white;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        #projects {
+            display: grid;
+            gap: 10px;
+        }
+
+        .project {
+            display: block;
+            padding: 15px;
+            background: #222;
+            border-radius: 8px;
+            text-decoration: none;
+            color: white;
+            transition: 0.2s;
+        }
+
+        .project:hover {
+            background: #333;
+        }
+    </style>
+</head>
+<body>
+
+<h1>My Projects</h1>
+
+<div id="projects">
+    Loading...
+</div>
+
+<script>
+const USERNAME = "YOUR_USERNAME";
+const REPO = "YOUR_REPO";
+
+async function loadProjects() {
+    try {
+        const response = await fetch(
+            `https://api.github.com/repos/${USERNAME}/${REPO}/contents`
+        );
+
+        const files = await response.json();
+
+        const htmlFiles = files.filter(file =>
+            file.type === "file" &&
+            file.name.endsWith(".html") &&
+            file.name.toLowerCase() !== "index.html"
+        );
+
+        const container = document.getElementById("projects");
+        container.innerHTML = "";
+
+        htmlFiles.sort((a, b) => a.name.localeCompare(b.name));
+
+        htmlFiles.forEach(file => {
+            const link = document.createElement("a");
+
+            link.href = file.name;
+            link.className = "project";
+
+            link.textContent = file.name
+                .replace(".html", "")
+                .replace(/[-_]/g, " ");
+
+            container.appendChild(link);
+        });
+
+        if (htmlFiles.length === 0) {
+            container.innerHTML = "No projects found.";
+        }
+
+    } catch (err) {
+        document.getElementById("projects").innerHTML =
+            "Failed to load projects.";
+        console.error(err);
+    }
+}
+
+loadProjects();
+</script>
+
+</body>
+</html>

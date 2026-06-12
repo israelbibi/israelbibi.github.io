@@ -1,0 +1,438 @@
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;cursor:none!important;user-select:none}
+body{background:#0a0010;font-family:'Segoe UI',sans-serif;min-height:100vh}
+#game-wrap{background:#0a0010;min-height:100vh;padding:16px;display:flex;flex-direction:column;align-items:center;gap:14px}
+#cursor{position:fixed;width:20px;height:20px;border:2px solid #b44fff;border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:transform .08s}
+#cursor-dot{position:fixed;width:5px;height:5px;background:#b44fff;border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%)}
+h1{color:#b44fff;font-size:20px;font-weight:500;letter-spacing:3px;text-transform:uppercase;margin-top:4px}
+#hud{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap;justify-content:center}
+.hud-box{background:#12002a;border:1px solid #3d0060;border-radius:10px;padding:8px 16px;text-align:center;min-width:80px}
+.hud-label{color:#7040a0;font-size:11px;letter-spacing:1px;text-transform:uppercase}
+.hud-val{color:#d480ff;font-size:18px;font-weight:500;margin-top:2px}
+.hud-val.gold{color:#ffcc44}
+#bet-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.bet-btn{background:#1a0030;border:1px solid #4a1070;color:#b44fff;border-radius:8px;padding:6px 14px;font-size:12px;cursor:none!important;transition:background .12s}
+.bet-btn:hover{background:#2d0055}
+.bet-btn:disabled{opacity:.35;pointer-events:none}
+#bet-input{background:#12002a;border:1px solid #4a1070;color:#ffcc44;border-radius:8px;padding:6px 12px;font-size:14px;width:90px;text-align:center}
+#mine-row{display:flex;gap:8px;align-items:center;justify-content:center}
+#mine-row label{color:#7040a0;font-size:12px}
+#mine-slider{width:90px;accent-color:#b44fff}
+#mine-label{color:#d480ff;font-size:12px;min-width:14px}
+#action-row{display:flex;gap:10px;justify-content:center}
+.action-btn{background:#2d0060;border:1px solid #6a20a0;color:#d480ff;border-radius:10px;padding:9px 22px;font-size:13px;font-weight:500;cursor:none!important;transition:background .12s,border-color .12s}
+.action-btn:hover{background:#3d0080;border-color:#9040c0}
+.action-btn:disabled{opacity:.35;pointer-events:none}
+#cashout-btn{background:#0d2d1a;border-color:#1da060;color:#40e090}
+#cashout-btn:hover{background:#1a4030}
+#grid{display:grid;gap:6px;position:relative}
+.tile{width:58px;height:58px;background:#12002a;border:1px solid #2d0050;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;transition:background .12s,transform .1s,border-color .15s,box-shadow .15s;position:relative;overflow:hidden}
+.tile:hover:not(.dead){border-color:#7a20c0;background:#1e0040}
+.tile.selected{border-color:#b44fff;background:#2d0055;box-shadow:0 0 8px #b44fff44}
+.tile.revealed-gem{background:#0d2d1a;border-color:#1da060}
+.tile.revealed-mine{background:#2d0000;border-color:#a02020}
+.tile.dead{pointer-events:none}
+.tile.sq-highlight{border-color:#ff8800;background:#1a0a00;box-shadow:0 0 10px #ff880055;animation:sqPulse 1s ease infinite alternate}
+.tile.cross-highlight{border-color:#ff44cc;background:#1a0015;box-shadow:0 0 10px #ff44cc55;animation:crPulse 1s ease infinite alternate}
+@keyframes sqPulse{from{box-shadow:0 0 6px #ff880044}to{box-shadow:0 0 14px #ff880099}}
+@keyframes crPulse{from{box-shadow:0 0 6px #ff44cc44}to{box-shadow:0 0 16px #ff44ccaa}}
+.tile.revealed-gem{animation:gemPop .25s ease}
+.tile.revealed-mine{animation:minePop .3s ease}
+@keyframes gemPop{0%{transform:scale(.75)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes minePop{0%{transform:scale(.75)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
+.ripple{position:fixed;border-radius:50%;background:rgba(180,79,255,.2);border:1px solid #b44fff55;pointer-events:none;z-index:9990;transform:translate(-50%,-50%) scale(0);animation:rippleOut .55s ease-out forwards}
+@keyframes rippleOut{to{transform:translate(-50%,-50%) scale(1);opacity:0}}
+#result-msg{font-size:15px;font-weight:500;padding:10px 24px;border-radius:10px;display:none;text-align:center}
+#result-msg.win{color:#40e090;background:#0d2d1a;border:1px solid #1da060}
+#result-msg.lose{color:#e04040;background:#2d0000;border:1px solid #a02020}
+#hint{color:#5a3070;font-size:11px;text-align:center;line-height:1.9}
+#cross-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9994}
+.cs-beam{position:absolute;pointer-events:none}
+.cs-beam-h{height:2px;background:linear-gradient(90deg,transparent,#ff880088 20%,#ff8800 50%,#ff880088 80%,transparent);box-shadow:0 0 8px #ff8800}
+.cs-beam-v{width:2px;background:linear-gradient(180deg,transparent,#ff880088 20%,#ff8800 50%,#ff880088 80%,transparent);box-shadow:0 0 8px #ff8800}
+.cs-node{position:absolute;width:10px;height:10px;border-radius:50%;background:#ff8800;box-shadow:0 0 10px #ff8800;transform:translate(-50%,-50%)}
+#sq-label,#cr-label{position:fixed;font-size:11px;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:9996;display:none;letter-spacing:.5px}
+#sq-label{background:#1a0a00;border:1px solid #ff8800;color:#ff8800}
+#cr-label{background:#1a0015;border:1px solid #ff44cc;color:#ff44cc}
+.profit-flash{position:fixed;font-size:16px;font-weight:500;pointer-events:none;z-index:9993;animation:profitFly .9s ease-out forwards}
+@keyframes profitFly{0%{opacity:1;transform:translate(-50%,-100%)}100%{opacity:0;transform:translate(-50%,-220%)}}
+</style>
+
+<div id="game-wrap">
+  <h2 class="sr-only">Mines game with currency, betting, and pattern selection</h2>
+  <h1>💎 Mines</h1>
+
+  <div id="hud">
+    <div class="hud-box"><div class="hud-label">Balance</div><div class="hud-val gold" id="balance">500</div></div>
+    <div class="hud-box"><div class="hud-label">Bet</div><div class="hud-val gold" id="bet-display">10</div></div>
+    <div class="hud-box"><div class="hud-label">Mines</div><div class="hud-val" id="mine-count">3</div></div>
+    <div class="hud-box"><div class="hud-label">Gems</div><div class="hud-val" id="gem-count">0</div></div>
+    <div class="hud-box"><div class="hud-label">Multiplier</div><div class="hud-val" id="multiplier">1.00×</div></div>
+  </div>
+
+  <div id="bet-row">
+    <input type="number" id="bet-input" value="10" min="1" max="100">
+    <button class="bet-btn" id="half-btn">½</button>
+    <button class="bet-btn" id="double-btn">2×</button>
+    <button class="bet-btn" id="max-btn">Max</button>
+  </div>
+
+  <div id="mine-row">
+    <label>Mines:</label>
+    <input type="range" id="mine-slider" min="1" max="20" value="3" step="1">
+    <span id="mine-label">3</span>
+  </div>
+
+  <div id="action-row">
+    <button class="action-btn" id="start-btn">Place Bet & Start</button>
+    <button class="action-btn" id="cashout-btn" disabled>Cash Out</button>
+  </div>
+
+  <div id="grid"></div>
+  <div id="result-msg"></div>
+  <div id="hint">Left-click → reveal &nbsp;|&nbsp; Hold drag → multi-select &nbsp;|&nbsp; Right-click center tile → 3×3 square → cross → trigger</div>
+</div>
+
+<div id="cursor"></div>
+<div id="cursor-dot"></div>
+<div id="cross-overlay"></div>
+<div id="sq-label">3×3 Square — right-click again for cross</div>
+<div id="cr-label">Cross Pattern — left-click to trigger</div>
+
+<script>
+const COLS=5,ROWS=5,CENTER=12;
+let mines=[],revealed=[],gameOver=true,mineCount=3,gemsFound=0;
+let balance=500,bet=10,inRound=false;
+let selMode=null; // null | 'sq' | 'cross'
+
+const grid=document.getElementById('grid');
+const balEl=document.getElementById('balance');
+const betDisp=document.getElementById('bet-display');
+const gemEl=document.getElementById('gem-count');
+const multEl=document.getElementById('multiplier');
+const mineEl=document.getElementById('mine-count');
+const resultMsg=document.getElementById('result-msg');
+const cashoutBtn=document.getElementById('cashout-btn');
+const startBtn=document.getElementById('start-btn');
+const sqLabel=document.getElementById('sq-label');
+const crLabel=document.getElementById('cr-label');
+const overlay=document.getElementById('cross-overlay');
+
+const cursor=document.getElementById('cursor');
+const dot=document.getElementById('cursor-dot');
+let mx=200,my=200,cx=200,cy=200,dx=200,dy=200;
+function animCursor(){
+  cx+=(mx-cx)*.17;cy+=(my-cy)*.17;
+  dx+=(mx-dx)*.3;dy+=(my-dy)*.3;
+  cursor.style.left=cx+'px';cursor.style.top=cy+'px';
+  dot.style.left=dx+'px';dot.style.top=dy+'px';
+  requestAnimationFrame(animCursor);
+}
+animCursor();
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;moveCrossOverlay(e.clientX,e.clientY);});
+
+function spawnRipple(x,y,sz=110){
+  const r=document.createElement('div');r.className='ripple';
+  r.style.cssText=`left:${x}px;top:${y}px;width:${sz}px;height:${sz}px`;
+  document.body.appendChild(r);setTimeout(()=>r.remove(),580);
+}
+document.addEventListener('click',e=>spawnRipple(e.clientX,e.clientY,100));
+
+function profitPop(x,y,txt,color){
+  const el=document.createElement('div');
+  el.className='profit-flash';el.style.cssText=`left:${x}px;top:${y}px;color:${color}`;
+  el.textContent=txt;document.body.appendChild(el);setTimeout(()=>el.remove(),950);
+}
+
+function clampBet(){
+  const maxBet=Math.min(100,Math.floor(balance*0.5));
+  bet=Math.max(1,Math.min(bet,maxBet));
+  document.getElementById('bet-input').value=bet;
+  betDisp.textContent=bet;
+}
+
+document.getElementById('bet-input').addEventListener('input',function(){
+  bet=parseInt(this.value)||1;clampBet();
+});
+document.getElementById('half-btn').addEventListener('click',()=>{bet=Math.max(1,Math.floor(bet/2));clampBet();});
+document.getElementById('double-btn').addEventListener('click',()=>{bet=Math.min(Math.floor(balance*.5),Math.min(100,bet*2));clampBet();});
+document.getElementById('max-btn').addEventListener('click',()=>{bet=Math.min(100,Math.floor(balance*.5));clampBet();});
+document.getElementById('mine-slider').addEventListener('input',function(){
+  document.getElementById('mine-label').textContent=this.value;
+  if(!inRound)mineEl.textContent=this.value;
+});
+
+function getMultiplier(gems,totalMines){
+  const safe=COLS*ROWS-totalMines;
+  if(gems<=0)return 1;
+  let m=1;
+  for(let i=0;i<gems;i++){
+    m*=(safe-i)/(COLS*ROWS-totalMines-i);
+  }
+  return Math.max(1,parseFloat((1/m*1.05*gems*.55+1).toFixed(2)));
+}
+
+function initGame(){
+  if(balance<1){alert('Not enough balance!');return;}
+  clampBet();
+  if(bet>balance){bet=balance;clampBet();}
+  balance-=bet;balEl.textContent=balance;
+  mineCount=parseInt(document.getElementById('mine-slider').value);
+  mines=[];revealed=[];gemsFound=0;gameOver=false;inRound=true;selMode=null;
+  clearHighlights();hideOverlay();
+  resultMsg.style.display='none';
+  gemEl.textContent='0';multEl.textContent='1.00×';
+  mineEl.textContent=mineCount;
+
+  const total=COLS*ROWS,mineSet=new Set();
+  while(mineSet.size<mineCount)mineSet.add(Math.floor(Math.random()*total));
+  for(let i=0;i<total;i++){mines[i]=mineSet.has(i);revealed[i]=false;}
+
+  grid.style.gridTemplateColumns=`repeat(${COLS},58px)`;
+  grid.innerHTML='';
+  for(let i=0;i<total;i++){
+    const t=document.createElement('div');
+    t.className='tile';t.dataset.idx=i;
+    grid.appendChild(t);
+  }
+
+  startBtn.textContent='New Bet';
+  cashoutBtn.disabled=false;
+}
+
+function revealTile(idx,batch=false){
+  if(gameOver||revealed[idx])return false;
+  revealed[idx]=true;
+  const t=grid.children[idx];
+  t.classList.remove('sq-highlight','cross-highlight','selected');
+  if(mines[idx]){
+    t.textContent='💣';t.classList.add('revealed-mine','dead');
+    const r=t.getBoundingClientRect();
+    spawnRipple(r.left+29,r.top+29,220);
+    if(!batch)endGame(false);
+    return 'mine';
+  } else {
+    t.textContent='💎';t.classList.add('revealed-gem','dead');
+    gemsFound++;
+    const mult=getMultiplier(gemsFound,mineCount);
+    gemEl.textContent=gemsFound;
+    multEl.textContent=mult.toFixed(2)+'×';
+    const safe=COLS*ROWS-mineCount;
+    if(gemsFound>=safe&&!batch)endGame(true);
+    return 'gem';
+  }
+}
+
+function endGame(win){
+  gameOver=true;inRound=false;selMode=null;
+  clearHighlights();hideOverlay();
+  if(!win){
+    for(let i=0;i<COLS*ROWS;i++){
+      if(mines[i]&&!revealed[i]){grid.children[i].textContent='💣';grid.children[i].classList.add('revealed-mine','dead');}
+    }
+    resultMsg.className='';resultMsg.classList.add('lose');
+    resultMsg.textContent=`💥 Mine hit! You lost ${bet} coins.`;
+  } else {
+    const mult=getMultiplier(gemsFound,mineCount);
+    const win=Math.floor(bet*mult);
+    balance+=win;balEl.textContent=balance;
+    resultMsg.className='';resultMsg.classList.add('win');
+    resultMsg.textContent=`🎉 Field cleared! Won ${win} coins (${mult.toFixed(2)}×)`;
+    profitPop(window.innerWidth/2,window.innerHeight/2,`+${win} 🪙`,'#ffcc44');
+  }
+  resultMsg.style.display='block';cashoutBtn.disabled=true;
+}
+
+cashoutBtn.addEventListener('click',()=>{
+  if(!inRound||gemsFound===0)return;
+  const mult=getMultiplier(gemsFound,mineCount);
+  const win=Math.floor(bet*mult);
+  balance+=win;balEl.textContent=balance;
+  gameOver=true;inRound=false;selMode=null;
+  clearHighlights();hideOverlay();
+  resultMsg.className='';resultMsg.classList.add('win');
+  resultMsg.textContent=`💰 Cashed out ${win} coins (${mult.toFixed(2)}×)`;
+  resultMsg.style.display='block';
+  cashoutBtn.disabled=true;
+  profitPop(window.innerWidth/2,window.innerHeight/2,`+${win} 🪙`,'#40e090');
+  for(let i=0;i<COLS*ROWS;i++){
+    if(mines[i]&&!revealed[i])grid.children[i].textContent='🟣';
+  }
+});
+
+startBtn.addEventListener('click',initGame);
+
+// --- Drag multi-select ---
+let mouseDown=false,dragSelecting=false;
+grid.addEventListener('mousedown',e=>{
+  if(e.button===0){mouseDown=true;dragSelecting=false;}
+});
+document.addEventListener('mousemove',e=>{
+  if(mouseDown){
+    dragSelecting=true;
+    const els=document.elementsFromPoint(e.clientX,e.clientY);
+    els.forEach(el=>{
+      if(el.classList&&el.classList.contains('tile')&&!revealed[el.dataset.idx]&&!el.classList.contains('revealed-gem')&&!el.classList.contains('revealed-mine'))
+        el.classList.add('selected');
+    });
+  }
+});
+document.addEventListener('mouseup',e=>{
+  if(e.button===0){
+    if(dragSelecting&&inRound){
+      let hitMine=false;
+      const sel=[...document.querySelectorAll('.tile.selected')];
+      for(const t of sel){
+        const res=revealTile(parseInt(t.dataset.idx),true);
+        if(res==='mine'){hitMine=true;break;}
+      }
+      document.querySelectorAll('.tile.selected').forEach(t=>t.classList.remove('selected'));
+      if(hitMine)endGame(false);
+      else{
+        const safe=COLS*ROWS-mineCount;
+        if(gemsFound>=safe)endGame(true);
+        else{const m=getMultiplier(gemsFound,mineCount);multEl.textContent=m.toFixed(2)+'×';}
+      }
+    }
+    mouseDown=false;dragSelecting=false;
+  }
+});
+
+grid.addEventListener('click',e=>{
+  if(dragSelecting||!inRound)return;
+  const t=e.target.closest('.tile');
+  if(!t)return;
+  const idx=parseInt(t.dataset.idx);
+  if(selMode&&idx===CENTER){
+    triggerPattern();
+    return;
+  }
+  if(revealed[idx])return;
+  const res=revealTile(idx);
+  if(res==='mine')endGame(false);
+  else if(res==='gem'){const safe=COLS*ROWS-mineCount;if(gemsFound>=safe)endGame(true);}
+});
+
+// --- Right-click pattern selector ---
+grid.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  if(!inRound)return;
+  const t=e.target.closest('.tile');
+  if(!t)return;
+  const idx=parseInt(t.dataset.idx);
+  if(idx!==CENTER)return;
+
+  if(!selMode){
+    selMode='sq';
+    applySquareHighlight();
+    showSqLabel(e.clientX,e.clientY);
+  } else if(selMode==='sq'){
+    selMode='cross';
+    clearHighlights();
+    applyCrossHighlight();
+    showCrLabel(e.clientX,e.clientY);
+  } else if(selMode==='cross'){
+    selMode=null;
+    clearHighlights();
+    hideOverlay();
+    sqLabel.style.display='none';crLabel.style.display='none';
+  }
+});
+
+function getSquareIdxs(){
+  const idxs=[];
+  for(let r=1;r<=3;r++)for(let c=1;c<=3;c++)idxs.push(r*COLS+c);
+  return idxs;
+}
+function getCrossIdxs(){
+  const mid=CENTER;
+  const r=Math.floor(mid/COLS),c=mid%COLS;
+  const idxs=new Set();
+  for(let i=0;i<COLS;i++)idxs.add(r*COLS+i);
+  for(let i=0;i<ROWS;i++)idxs.add(i*COLS+c);
+  return [...idxs];
+}
+
+function applySquareHighlight(){
+  getSquareIdxs().forEach(i=>{
+    if(!revealed[i])grid.children[i].classList.add('sq-highlight');
+  });
+}
+function applyCrossHighlight(){
+  getCrossIdxs().forEach(i=>{
+    if(!revealed[i])grid.children[i].classList.add('cross-highlight');
+  });
+}
+function clearHighlights(){
+  document.querySelectorAll('.tile.sq-highlight,.tile.cross-highlight').forEach(t=>{
+    t.classList.remove('sq-highlight','cross-highlight');
+  });
+}
+
+function triggerPattern(){
+  const idxs=selMode==='sq'?getSquareIdxs():getCrossIdxs();
+  selMode=null;clearHighlights();hideOverlay();
+  sqLabel.style.display='none';crLabel.style.display='none';
+  let hitMine=false;
+  for(const i of idxs){
+    if(!revealed[i]){
+      const res=revealTile(i,true);
+      if(res==='mine'){hitMine=true;break;}
+    }
+  }
+  if(hitMine)endGame(false);
+  else{
+    const safe=COLS*ROWS-mineCount;
+    if(gemsFound>=safe)endGame(true);
+    else{const m=getMultiplier(gemsFound,mineCount);multEl.textContent=m.toFixed(2)+'×';}
+  }
+}
+
+// --- Aesthetic cross overlay (follows mouse when right-hold active) ---
+let overlayActive=false;
+function moveCrossOverlay(x,y){
+  if(!overlayActive)return;
+  const h=overlay.querySelector('.cs-beam-h');
+  const v=overlay.querySelector('.cs-beam-v');
+  const n=overlay.querySelector('.cs-node');
+  if(!h||!v||!n)return;
+  h.style.top=(y-1)+'px';
+  v.style.left=(x-1)+'px';
+  n.style.left=x+'px';n.style.top=y+'px';
+}
+
+function showOverlay(){
+  overlayActive=true;
+  overlay.innerHTML='';
+  const h=document.createElement('div');h.className='cs-beam cs-beam-h';
+  h.style.cssText='left:0;top:0;width:100%;';
+  const v=document.createElement('div');v.className='cs-beam cs-beam-v';
+  v.style.cssText='top:0;left:0;height:100%;';
+  const n=document.createElement('div');n.className='cs-node';
+  overlay.appendChild(h);overlay.appendChild(v);overlay.appendChild(n);
+}
+function hideOverlay(){
+  overlayActive=false;
+  overlay.innerHTML='';
+}
+
+function showSqLabel(x,y){
+  sqLabel.style.left=(x+14)+'px';sqLabel.style.top=(y-8)+'px';sqLabel.style.display='block';
+  crLabel.style.display='none';
+  showOverlay();
+}
+function showCrLabel(x,y){
+  crLabel.style.left=(x+14)+'px';crLabel.style.top=(y-8)+'px';crLabel.style.display='block';
+  sqLabel.style.display='none';
+}
+
+document.addEventListener('mousemove',e=>{
+  if(sqLabel.style.display==='block'){sqLabel.style.left=(e.clientX+14)+'px';sqLabel.style.top=(e.clientY-8)+'px';}
+  if(crLabel.style.display==='block'){crLabel.style.left=(e.clientX+14)+'px';crLabel.style.top=(e.clientY-8)+'px';}
+});
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&selMode){selMode=null;clearHighlights();hideOverlay();sqLabel.style.display='none';crLabel.style.display='none';}});
+
+initGame();
+</script>
